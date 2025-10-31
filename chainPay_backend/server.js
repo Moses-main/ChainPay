@@ -7,8 +7,9 @@ import { createServer } from 'http';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import config from './src/config/index.js';
-import errorHandler from './src/middleware/errorHandler.js';
+import { requestLogger, errorHandler } from './src/middleware/requestLogger.js';
 import authRoutes from './src/routes/authRoutes.js';
+import logger from './src/utils/logger.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -16,17 +17,34 @@ const __dirname = dirname(__filename);
 const app = express();
 const server = createServer(app);
 
-// Middleware
+// Trust first proxy
+app.set('trust proxy', 1);
+
+// Security middleware
 app.use(helmet());
+
+// CORS configuration
 app.use(cors({
   origin: config.cors.allowedOrigins,
   credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
-app.use(express.json());
 
-// Logging in development
+// Request parsing
+app.use(express.json({ limit: '10kb' }));
+app.use(express.urlencoded({ extended: true, limit: '10kb' }));
+
+// Request logging
+app.use(requestLogger);
+
+// Development logging
 if (config.nodeEnv === 'development') {
-  app.use(morgan('dev'));
+  app.use(morgan('dev', {
+    stream: {
+      write: (message) => logger.http(message.trim())
+    }
+  }));
 }
 
 // Routes
@@ -42,7 +60,35 @@ app.get('/health', (req, res) => {
 });
 
 // Error handling middleware (must be after all other middleware and routes)
-app.use(errorHandler);
+app.use((err, req, res, next) => {
+  errorHandler(err, req, res, next);
+});
+
+// Log unhandled promise rejections
+process.on('unhandledRejection', (reason, promise) => {
+  logger.error('Unhandled Rejection at:', {
+    reason,
+    stack: reason.stack,
+    promise
+  });
+  // Consider whether to crash the app in production
+  if (process.env.NODE_ENV === 'production') {
+    // In production, we might want to gracefully shut down
+    process.exit(1);
+  }
+});
+
+// Log uncaught exceptions
+process.on('uncaughtException', (error) => {
+  logger.error('Uncaught Exception:', {
+    error: error.message,
+    stack: error.stack
+  });
+  // Consider whether to crash the app in production
+  if (process.env.NODE_ENV === 'production') {
+    process.exit(1);
+  }
+});
 
 // Handle 404
 app.use((req, res) => {
@@ -74,6 +120,12 @@ process.on('uncaughtException', (err) => {
 // Start the server
 const PORT = process.env.PORT || 3001;
 server.listen(PORT, () => {
+  logger.info(`Server running in ${config.nodeEnv} mode on port ${PORT}`, {
+    environment: config.nodeEnv,
+    port: PORT,
+    timestamp: new Date().toISOString()
+  });
+  
   console.log(`Server running in ${config.nodeEnv} mode on port ${PORT}`);
   console.log('Server started successfully');
 });
