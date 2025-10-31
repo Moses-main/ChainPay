@@ -4,9 +4,18 @@ import { usePrivy } from "./hooks/userPrivy";
 import AuthScreen from "./components/AuthScreen";
 import ChatMessage from "./components/ChatMessage";
 import WalletCard from "./components/WalletCard";
-import { Wallet, Send, MessageCircle } from "lucide-react";
+import {
+  Send,
+  Wallet,
+  MessageCircle,
+  User,
+  ChevronRight,
+  Copy,
+  Check,
+} from "lucide-react";
+
 import { api } from "./hooks/userPrivy";
-import "./App.css";
+import styles from "./App.module.css";
 
 // Main App Component
 const App = () => {

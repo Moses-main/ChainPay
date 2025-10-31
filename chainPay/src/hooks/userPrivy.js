@@ -1,5 +1,14 @@
 // Mock Privy integration
-import { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import {
+  Send,
+  Wallet,
+  MessageCircle,
+  User,
+  ChevronRight,
+  Copy,
+  Check,
+} from "lucide-react";
 
 export const usePrivy = () => {
   const [authenticated, setAuthenticated] = useState(false);
