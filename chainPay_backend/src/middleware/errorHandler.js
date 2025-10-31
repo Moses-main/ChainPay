@@ -1,23 +1,26 @@
-const errorHandler = (err, req, res, next) => {
-  console.error("Error:", err);
+import { StatusCodes } from 'http-status-codes';
 
-  const statusCode = err.statusCode || 500;
-  const message = err.message || "Internal Server Error";
+export default (err, req, res, next) => {
+    console.error(err.stack);
 
-  res.status(statusCode).json({
-    success: false,
-    error: message,
-    ...(process.env.NODE_ENV === "development" && { stack: err.stack }),
-  });
-};
+    if (err.name === 'ValidationError') {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+            success: false,
+            error: 'Validation Error',
+            details: err.message
+        });
+    }
 
-const notFound = (req, res, next) => {
-  const error = new Error(`Not Found - ${req.originalUrl}`);
-  error.statusCode = 404;
-  next(error);
-};
+    if (err.code === 'auth/invalid-phone-number') {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+            success: false,
+            error: 'Invalid phone number format'
+        });
+    }
 
-module.exports = {
-  errorHandler,
-  notFound,
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        error: 'Internal Server Error',
+        message: process.env.NODE_ENV === 'development' ? err.message : 'Something went wrong'
+    });
 };

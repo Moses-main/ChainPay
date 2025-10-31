@@ -1,20 +1,12 @@
-require("dotenv").config();
+import { admin, auth, db } from './firebase.js';
 
-module.exports = {
+const config = {
   port: process.env.PORT || 3001,
   nodeEnv: process.env.NODE_ENV || "development",
-  supabase: {
-    url: process.env.SUPABASE_URL,
-    key: process.env.SUPABASE_KEY,
-    serviceKey: process.env.SUPABASE_SERVICE_KEY,
-  },
-  coinbase: {
-    apiKeyName: process.env.CDP_API_KEY_NAME,
-    apiKeyPrivateKey: process.env.CDP_API_KEY_PRIVATE_KEY,
-    networkId: process.env.NETWORK_ID || "base-sepolia",
-  },
-  openai: {
-    apiKey: process.env.OPENAI_API_KEY,
+  firebase: {
+    admin,
+    auth,
+    db
   },
   cors: {
     allowedOrigins: process.env.ALLOWED_ORIGINS?.split(",") || [
@@ -27,5 +19,7 @@ module.exports = {
   },
   jwt: {
     secret: process.env.JWT_SECRET || "change-this-secret",
-  },
+  }
 };
+
+export default config;

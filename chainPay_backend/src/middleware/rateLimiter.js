@@ -1,27 +1,15 @@
-const rateLimit = require("express-rate-limit");
-const config = require("../config");
+import rateLimit from 'express-rate-limit';
 
-const limiter = rateLimit({
-  windowMs: config.rateLimit.windowMs,
-  max: config.rateLimit.max,
-  message: {
-    success: false,
-    error: "Too many requests, please try again later.",
-  },
-  standardHeaders: true,
-  legacyHeaders: false,
+export const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 5, // limit each IP to 5 requests per windowMs
+    message: {
+        success: false,
+        error: 'Too many login attempts, please try again after 15 minutes'
+    }
 });
 
-const strictLimiter = rateLimit({
-  windowMs: 60000, // 1 minute
-  max: 10,
-  message: {
-    success: false,
-    error: "Too many requests, please slow down.",
-  },
+export const apiLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 100 // limit each IP to 100 requests per windowMs
 });
-
-module.exports = {
-  limiter,
-  strictLimiter,
-};

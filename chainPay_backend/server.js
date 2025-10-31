@@ -1,69 +1,81 @@
-const express = require("express");
-const cors = require("cors");
-const helmet = require("helmet");
-const morgan = require("morgan");
-const config = require("./src/config");
-const { initializeAgentkit } = require("./src/config/coinbase");
-const { errorHandler, notFound } = require("./src/middleware/errorHandler");
-const { limiter } = require("./src/middleware/rateLimiter");
-const logger = require("./src/utils/logger");
+import 'dotenv/config';
+import express from 'express';
+import cors from 'cors';
+import helmet from 'helmet';
+import morgan from 'morgan';
+import { createServer } from 'http';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+import config from './src/config/index.js';
+import errorHandler from './src/middleware/errorHandler.js';
+import authRoutes from './src/routes/authRoutes.js';
 
-// Routes
-const authRoutes = require("./src/routes/auth");
-const walletRoutes = require("./src/routes/wallet");
-const transactionRoutes = require("./src/routes/transaction");
-const chatRoutes = require("./src/routes/chat");
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const app = express();
+const server = createServer(app);
 
 // Middleware
 app.use(helmet());
-app.use(
-  cors({
-    origin: config.cors.allowedOrigins,
-    credentials: true,
-  })
-);
+app.use(cors({
+  origin: config.cors.allowedOrigins,
+  credentials: true,
+}));
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use(morgan("combined"));
-app.use("/api/", limiter);
+
+// Logging in development
+if (config.nodeEnv === 'development') {
+  app.use(morgan('dev'));
+}
 
 // Routes
-app.use("/api/register", authRoutes);
-app.use("/api/wallet", walletRoutes);
-app.use("/api", transactionRoutes);
-app.use("/api/chat", chatRoutes);
+app.use('/api/auth', authRoutes);
 
-// Health check
-app.get("/health", (req, res) => {
-  res.json({
-    status: "healthy",
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    status: 'ok',
+    environment: config.nodeEnv,
     timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
   });
 });
 
-// Error handling
-app.use(notFound);
+// Error handling middleware (must be after all other middleware and routes)
 app.use(errorHandler);
 
-// Initialize Coinbase AgentKit and start server
-const startServer = async () => {
-  try {
-    await initializeAgentkit();
+// Handle 404
+app.use((req, res) => {
+  res.status(404).json({
+    success: false,
+    error: 'Not Found',
+    message: 'The requested resource was not found',
+  });
+});
 
-    app.listen(config.port, () => {
-      logger.info(`🚀 Server running on http://localhost:${config.port}`);
-      logger.info(`📝 Environment: ${config.nodeEnv}`);
-      logger.info(`🔗 CORS allowed: ${config.cors.allowedOrigins.join(", ")}`);
-    });
-  } catch (error) {
-    logger.error("Failed to start server:", error);
+// Handle unhandled promise rejections
+process.on('unhandledRejection', (err) => {
+  console.error('UNHANDLED REJECTION! Shutting down...');
+  console.error(err.name, err.message);
+  server.close(() => {
     process.exit(1);
-  }
-};
+  });
+});
 
-startServer();
+// Handle uncaught exceptions
+process.on('uncaughtException', (err) => {
+  console.error('UNCAUGHT EXCEPTION! Shutting down...');
+  console.error(err.name, err.message);
+  server.close(() => {
+    process.exit(1);
+  });
+});
 
-module.exports = app;
+// Start the server
+const PORT = process.env.PORT || 3001;
+server.listen(PORT, () => {
+  console.log(`Server running in ${config.nodeEnv} mode on port ${PORT}`);
+  console.log('Server started successfully');
+});
+
+export { app, server };
